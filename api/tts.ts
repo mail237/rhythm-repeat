@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { errorResponse, jsonResponse, readJsonBody } from './_shared.js';
 
 export const config = { runtime: 'edge' };

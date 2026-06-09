@@ -100,6 +100,68 @@ Respond ONLY in JSON format:
   sendJson(res, data, response.status);
 }
 
+async function handleSuggest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  geminiKey: string,
+) {
+  const body = JSON.parse(await readBody(req)) as {
+    userInput: string;
+    languageLabel: string;
+  };
+
+  const prompt = `You are a language coach specializing in natural, colloquial expressions.
+The user will describe in Japanese what they want to say or a situation they're in.
+Generate 3-5 natural, colloquial phrases in the target language (English or German).
+
+Respond ONLY in JSON format:
+{
+  "phrases": [
+    {
+      "text": "phrase in target language",
+      "translation": "日本語訳",
+      "context": "どんな場面で使うか（日本語で1〜2文）",
+      "register": "casual | neutral | formal"
+    }
+  ]
+}
+
+言語: ${body.languageLabel}
+ユーザーのリクエスト: ${body.userInput}`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${geminiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.7,
+          maxOutputTokens: 1200,
+        },
+      }),
+    },
+  );
+
+  const data = await response.json();
+  if (!response.ok) {
+    sendJson(res, data, response.status);
+    return;
+  }
+
+  const text =
+    (data as { candidates?: { content?: { parts?: { text?: string }[] } }[] })
+      .candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    sendJson(res, { error: { message: 'Invalid AI JSON' } }, 500);
+    return;
+  }
+  sendJson(res, JSON.parse(jsonMatch[0]));
+}
+
 function createMiddleware(env: Record<string, string>) {
   return async (
     req: IncomingMessage,
@@ -142,6 +204,24 @@ function createMiddleware(env: Record<string, string>) {
           return;
         }
         await handleClaude(req, res, apiKey);
+        return;
+      }
+
+      if (url === '/api/suggest') {
+        const apiKey =
+          env.GEMINI_API_KEY ||
+          env.GOOGLE_TTS_API_KEY ||
+          env.VITE_GOOGLE_TTS_API_KEY ||
+          '';
+        if (!apiKey) {
+          sendJson(
+            res,
+            { error: { message: 'GEMINI_API_KEY not set in .env' } },
+            500,
+          );
+          return;
+        }
+        await handleSuggest(req, res, apiKey);
         return;
       }
 
