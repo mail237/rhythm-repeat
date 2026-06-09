@@ -129,25 +129,37 @@ Respond ONLY in JSON format:
 言語: ${body.languageLabel}
 ユーザーのリクエスト: ${body.userInput}`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${geminiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.7,
-          maxOutputTokens: 1200,
-        },
-      }),
-    },
-  );
+  const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'] as const;
+  let data: unknown;
+  let response: Response | undefined;
 
-  const data = await response.json();
-  if (!response.ok) {
-    sendJson(res, data, response.status);
+  for (const model of models) {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.7,
+            maxOutputTokens: 1200,
+          },
+        }),
+      },
+    );
+
+    data = await response.json();
+    if (response.ok) break;
+    if (response.status !== 404 && response.status !== 429) {
+      sendJson(res, data, response.status);
+      return;
+    }
+  }
+
+  if (!response?.ok) {
+    sendJson(res, data, response?.status ?? 500);
     return;
   }
 
