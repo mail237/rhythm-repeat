@@ -1,6 +1,7 @@
 import type { AppSettings } from '../types';
 import { LANGUAGE_CONFIG, LOOP_OPTIONS, SPEED_OPTIONS } from '../types';
 import { hasAnthropicKey, hasTtsKey } from '../utils/apiKeys';
+import { hasServerProxy } from '../config/api';
 
 interface Props {
   open: boolean;
@@ -54,8 +55,9 @@ export function SettingsModal({ open, settings, onClose, onSave }: Props) {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="bg-gray-800/50 rounded-xl p-3 flex flex-col gap-2">
-            <KeyStatus ok={hasTtsKey(settings)} label="Google TTS" />
-            <KeyStatus ok={hasAnthropicKey(settings)} label="Anthropic (AI)" />
+            <KeyStatus ok={hasServerProxy()} label="AIフレーズ提案" />
+            <KeyStatus ok={hasTtsKey(settings)} label="Google TTS（任意）" />
+            <KeyStatus ok={hasAnthropicKey(settings)} label="Anthropic（任意）" />
           </div>
 
           <label className="flex flex-col gap-1.5">
@@ -154,8 +156,9 @@ export function SettingsModal({ open, settings, onClose, onSave }: Props) {
           </div>
 
           <p className="text-xs text-gray-500 leading-relaxed">
-            APIキー未設定でも端末音声（Web Speech）で練習できます。Google TTS /
-            Anthropic キーを設定すると高音質 TTS と AI カスタム提案が使えます。
+            AIフレーズ提案はサーバー経由で使えます（キー不要）。音声は API
+            キー未設定でも端末音声（Web Speech）で練習できます。Google TTS
+            キーを設定すると高音質 TTS が使えます。
           </p>
 
           <div className="flex gap-2 justify-end pt-2">

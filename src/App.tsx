@@ -3,6 +3,7 @@ import type { Language, Phrase } from './types';
 import { PracticePanel } from './components/PracticePanel';
 import { PhraseLibrary } from './components/PhraseLibrary';
 import { SettingsModal } from './components/SettingsModal';
+import { UpdateBanner } from './components/UpdateBanner';
 import { usePhraseStore } from './hooks/usePhraseStore';
 import { useSettings } from './hooks/useSettings';
 
@@ -127,6 +128,8 @@ export default function App() {
         onClose={() => setShowSettings(false)}
         onSave={updateSettings}
       />
+
+      <UpdateBanner />
     </div>
   );
 }

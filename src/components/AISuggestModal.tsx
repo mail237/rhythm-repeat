@@ -64,8 +64,11 @@ export function AISuggestModal({
       />
       <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl">
         <h2 className="text-lg font-semibold mb-1">✨ AIフレーズ提案</h2>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-gray-500 mb-1">
           {LANGUAGE_CONFIG[language].flag} {LANGUAGE_CONFIG[language].label}
+        </p>
+        <p className="text-xs text-gray-600 mb-4">
+          日本語で入力するだけ。APIキーは不要です。
         </p>
 
         <textarea
