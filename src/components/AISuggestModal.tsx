@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { suggestPhrases } from '../services/claudeAI';
+import { STARTER_PHRASES } from '../data/starterPhrases';
 import type { Language, SuggestedPhrase } from '../types';
 import { LANGUAGE_CONFIG } from '../types';
 
@@ -25,22 +26,31 @@ export function AISuggestModal({
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<SuggestedPhrase[]>([]);
 
+  useEffect(() => {
+    if (open && !anthropicApiKey) {
+      setSuggestions(STARTER_PHRASES[language]);
+    }
+  }, [open, language, anthropicApiKey]);
+
   if (!open) return null;
 
   const handleGenerate = async () => {
     if (!input.trim()) return;
 
+    if (!anthropicApiKey) {
+      setSuggestions(STARTER_PHRASES[language]);
+      setError('APIキー未設定のため、定番フレーズを表示しています');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const phrases = await suggestPhrases(
-        input,
-        language,
-        anthropicApiKey || undefined,
-      );
+      const phrases = await suggestPhrases(input, language, anthropicApiKey);
       setSuggestions(phrases);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'エラーが発生しました');
+      setSuggestions(STARTER_PHRASES[language]);
     } finally {
       setLoading(false);
     }
@@ -61,10 +71,17 @@ export function AISuggestModal({
         aria-label="閉じる"
       />
       <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl">
-        <h2 className="text-lg font-semibold mb-1">✨ AIフレーズ提案</h2>
+        <h2 className="text-lg font-semibold mb-1">✨ フレーズ提案</h2>
         <p className="text-sm text-gray-500 mb-4">
           {LANGUAGE_CONFIG[language].flag} {LANGUAGE_CONFIG[language].label}
         </p>
+
+        {!anthropicApiKey && (
+          <p className="text-xs text-violet-300 bg-violet-900/20 border border-violet-800/40 rounded-lg px-3 py-2 mb-3">
+            定番フレーズを表示中。⚙️ に Anthropic APIキーを設定すると、日本語から AI
+            提案が使えます。
+          </p>
+        )}
 
         <textarea
           value={input}
@@ -80,10 +97,10 @@ export function AISuggestModal({
           disabled={loading || !input.trim()}
           className="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 font-medium text-sm mb-4 transition-colors"
         >
-          {loading ? '生成中...' : 'フレーズを生成'}
+          {loading ? '生成中...' : anthropicApiKey ? 'AIで生成' : '定番フレーズを表示'}
         </button>
 
-        {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
+        {error && <p className="text-amber-400 text-sm mb-3">{error}</p>}
 
         <div className="flex flex-col gap-3">
           {suggestions.map((s, i) => (

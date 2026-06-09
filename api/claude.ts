@@ -1,4 +1,4 @@
-import { errorResponse, jsonResponse, readJsonBody } from './_shared';
+import { errorResponse, jsonResponse, readJsonBody } from './_shared.js';
 
 export const config = { runtime: 'edge' };
 

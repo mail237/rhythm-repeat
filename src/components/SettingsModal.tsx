@@ -154,8 +154,8 @@ export function SettingsModal({ open, settings, onClose, onSave }: Props) {
           </div>
 
           <p className="text-xs text-gray-500 leading-relaxed">
-            キーはこの端末の localStorage にのみ保存されます。Vercel
-            側に環境変数を設定している場合は、キー未入力でもサーバー経由で動作します。
+            APIキー未設定でも端末音声（Web Speech）で練習できます。Google TTS /
+            Anthropic キーを設定すると高音質 TTS と AI カスタム提案が使えます。
           </p>
 
           <div className="flex gap-2 justify-end pt-2">

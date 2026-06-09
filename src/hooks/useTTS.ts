@@ -57,7 +57,7 @@ export function useTTS(
     [googleApiKey, cleanup, onCharUsed],
   );
 
-  return { fetchAudio, loading, error, cleanup };
+  return { fetchAudio, loading, error, cleanup, setError };
 }
 
 export type { Timepoint };
