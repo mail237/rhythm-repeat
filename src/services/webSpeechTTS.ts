@@ -1,6 +1,5 @@
 import type { Language } from '../types';
-
-export type SpeechEngine = 'google' | 'webspeech';
+import { isIOS } from '../utils/audioUnlock';
 
 export interface WebSpeechHandle {
   engine: 'webspeech';
@@ -12,8 +11,30 @@ function langCode(language: Language): string {
   return language === 'de' ? 'de-DE' : 'en-US';
 }
 
+function langPrefix(language: Language): string {
+  return language === 'de' ? 'de' : 'en';
+}
+
 export function isWebSpeechAvailable(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
+}
+
+/** Warm up speech synthesis — call from user gesture on iOS. */
+export function warmUpSpeechSynthesis(): void {
+  if (!isWebSpeechAvailable()) return;
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.cancel();
+}
+
+function pickVoice(language: Language): SpeechSynthesisVoice | undefined {
+  const voices = window.speechSynthesis.getVoices();
+  const prefix = langPrefix(language);
+  return (
+    voices.find((v) => v.lang.replace('_', '-').startsWith(langCode(language))) ??
+    voices.find((v) => v.lang.startsWith(prefix)) ??
+    voices.find((v) => v.default) ??
+    voices[0]
+  );
 }
 
 export function speakWithWebSpeech(
@@ -25,6 +46,7 @@ export function speakWithWebSpeech(
     onWordIndex?: (index: number) => void;
     onPlayingChange?: (playing: boolean) => void;
     onLoopComplete?: () => void;
+    onError?: (message: string) => void;
   },
 ): WebSpeechHandle {
   const words = text.match(/\S+/g) ?? [];
@@ -32,6 +54,7 @@ export function speakWithWebSpeech(
   let stopped = false;
   let paused = false;
   let currentWord = -1;
+  let started = false;
 
   const stop = () => {
     stopped = true;
@@ -41,7 +64,7 @@ export function speakWithWebSpeech(
   };
 
   const togglePause = () => {
-    if (stopped) return;
+    if (stopped || isIOS()) return; // iOS pause/resume is unreliable
     if (paused) {
       window.speechSynthesis.resume();
       paused = false;
@@ -56,13 +79,14 @@ export function speakWithWebSpeech(
   const speakOnce = () => {
     if (stopped) return;
 
+    window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = langCode(language);
-    utterance.rate = speed;
+    utterance.rate = Math.min(2, Math.max(0.5, speed));
 
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find((v) => v.lang.startsWith(langCode(language)));
-    if (preferred) utterance.voice = preferred;
+    const voice = pickVoice(language);
+    if (voice) utterance.voice = voice;
 
     utterance.onboundary = (event) => {
       if (event.name === 'word' && words.length > 0) {
@@ -79,6 +103,7 @@ export function speakWithWebSpeech(
     };
 
     utterance.onstart = () => {
+      started = true;
       paused = false;
       callbacks.onPlayingChange?.(true);
     };
@@ -90,25 +115,60 @@ export function speakWithWebSpeech(
       callbacks.onWordIndex?.(-1);
 
       if (loopCount === Infinity || loopsDone < loopCount) {
-        speakOnce();
+        const delay = isIOS() ? 250 : 50;
+        window.setTimeout(() => speakOnce(), delay);
       } else {
         callbacks.onPlayingChange?.(false);
       }
     };
 
-    utterance.onerror = () => {
-      if (!stopped) callbacks.onPlayingChange?.(false);
+    utterance.onerror = (event) => {
+      if (stopped || event.error === 'interrupted') return;
+      callbacks.onPlayingChange?.(false);
+      callbacks.onError?.(
+        event.error === 'not-allowed'
+          ? '音声再生がブロックされました。もう一度▶をタップしてください'
+          : `音声エラー: ${event.error}`,
+      );
     };
 
-    window.speechSynthesis.speak(utterance);
+    const start = () => window.speechSynthesis.speak(utterance);
+
+    // iOS: speak must happen soon after user gesture; small delay helps voice loading
+    if (isIOS()) {
+      window.setTimeout(start, 50);
+    } else {
+      start();
+    }
+
+    // Fallback if onstart never fires (common iOS bug)
+    window.setTimeout(() => {
+      if (!stopped && !started) {
+        window.speechSynthesis.cancel();
+        start();
+      }
+    }, 500);
   };
 
-  // iOS Safari: voices load async
+  warmUpSpeechSynthesis();
+
+  let hasStarted = false;
+  const startOnce = () => {
+    if (hasStarted || stopped) return;
+    hasStarted = true;
+    speakOnce();
+  };
+
   const voices = window.speechSynthesis.getVoices();
   if (voices.length === 0) {
-    window.speechSynthesis.onvoiceschanged = () => speakOnce();
+    const onVoices = () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', onVoices);
+      startOnce();
+    };
+    window.speechSynthesis.addEventListener('voiceschanged', onVoices);
+    window.setTimeout(startOnce, 150);
   } else {
-    speakOnce();
+    startOnce();
   }
 
   return { engine: 'webspeech', stop, togglePause };

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActiveWordIndex } from '../utils/words';
+import { unlockAudio } from '../utils/audioUnlock';
 import type { Timepoint } from '../types';
 
 interface PlaybackOptions {
@@ -58,6 +59,8 @@ export function usePlayback() {
       timepointsRef.current = timepoints;
 
       const audio = new Audio(audioUrl);
+      audio.setAttribute('playsinline', 'true');
+      audio.preload = 'auto';
       audioRef.current = audio;
 
       let loopsDone = 0;
@@ -70,7 +73,7 @@ export function usePlayback() {
         const maxLoops = loopCountRef.current;
         if (maxLoops === Infinity || loopsDone < maxLoops) {
           audio.currentTime = 0;
-          void audio.play();
+          void audio.play().catch(() => setIsPlaying(false));
         } else {
           stopHighlightLoop();
           setIsPlaying(false);
@@ -90,7 +93,12 @@ export function usePlayback() {
       };
 
       setCurrentLoop(0);
-      await audio.play();
+      try {
+        await audio.play();
+      } catch {
+        setIsPlaying(false);
+        throw new Error('音声の再生に失敗しました。もう一度▶をタップしてください');
+      }
     },
     [stop, stopHighlightLoop, startHighlightLoop],
   );
@@ -125,5 +133,6 @@ export function usePlayback() {
     isPlaying,
     currentLoop,
     activeWordIndex,
+    unlock: unlockAudio,
   };
 }

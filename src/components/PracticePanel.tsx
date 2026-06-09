@@ -10,8 +10,10 @@ import { usePlayback } from '../hooks/usePlayback';
 import {
   isWebSpeechAvailable,
   speakWithWebSpeech,
+  warmUpSpeechSynthesis,
   type WebSpeechHandle,
 } from '../services/webSpeechTTS';
+import { unlockAudio } from '../utils/audioUnlock';
 
 interface Props {
   language: Language;
@@ -60,6 +62,9 @@ export function PracticePanel({
   const [webSpeechWordIndex, setWebSpeechWordIndex] = useState(-1);
 
   const webSpeechRef = useRef<WebSpeechHandle | null>(null);
+  const optsRef = useRef({ language, speed, loopCount, activePhraseId });
+
+  optsRef.current = { language, speed, loopCount, activePhraseId };
 
   const { fetchAudio, loading, error, cleanup, setError } = useTTS(
     googleApiKey,
@@ -77,6 +82,7 @@ export function PracticePanel({
   }, [initialTranslation]);
 
   useEffect(() => {
+    warmUpSpeechSynthesis();
     return () => {
       cleanup();
       webSpeechRef.current?.stop();
@@ -94,9 +100,12 @@ export function PracticePanel({
   const onLoopComplete = useCallback(() => {
     setSessionToday((t) => t + 1);
     setSessionTotal((t) => t + 1);
-    if (activePhraseId) onPlayRecorded(activePhraseId);
-  }, [activePhraseId, onPlayRecorded]);
+    if (optsRef.current.activePhraseId) {
+      onPlayRecorded(optsRef.current.activePhraseId);
+    }
+  }, [onPlayRecorded]);
 
+  /** Must run synchronously inside the user's tap — no await before this. */
   const playWithWebSpeech = useCallback(
     (phraseText: string) => {
       if (!isWebSpeechAvailable()) {
@@ -104,73 +113,77 @@ export function PracticePanel({
         return;
       }
 
+      unlockAudio();
       stopAll();
-      setStatusMsg('📱 端末音声で再生中（⚙️でGoogle TTSキーを設定すると高音質）');
+      setError(null);
+      setStatusMsg('📱 端末音声で再生中');
+
+      const { language: lang, speed: spd, loopCount: loops } = optsRef.current;
 
       webSpeechRef.current = speakWithWebSpeech(
         phraseText,
-        language,
-        speed,
-        loopCount,
+        lang,
+        spd,
+        loops,
         {
           onWordIndex: setWebSpeechWordIndex,
           onPlayingChange: setWebSpeechPlaying,
           onLoopComplete,
+          onError: (msg) => setError(msg),
         },
       );
     },
-    [language, speed, loopCount, stopAll, onLoopComplete, setError],
+    [stopAll, onLoopComplete, setError],
   );
 
-  const playPhrase = useCallback(
+  const playWithGoogleTts = useCallback(
     async (phraseText: string) => {
       setStatusMsg(null);
       setError(null);
       stopAll();
+      unlockAudio();
 
-      if (googleApiKey) {
-        try {
-          const result = await fetchAudio(phraseText, language, speed);
-          await play(result.audioUrl, result.timepoints, {
-            loopCount,
-            onLoopComplete,
-          });
-          return;
-        } catch {
-          // fall through to web speech
-        }
-      } else {
-        try {
-          const result = await fetchAudio(phraseText, language, speed);
-          await play(result.audioUrl, result.timepoints, {
-            loopCount,
-            onLoopComplete,
-          });
-          return;
-        } catch {
-          // server proxy unavailable — use device voice
-        }
+      try {
+        const result = await fetchAudio(
+          phraseText,
+          optsRef.current.language,
+          optsRef.current.speed,
+        );
+        await play(result.audioUrl, result.timepoints, {
+          loopCount: optsRef.current.loopCount,
+          onLoopComplete,
+        });
+      } catch {
+        playWithWebSpeech(phraseText);
       }
-
-      playWithWebSpeech(phraseText);
     },
-    [
-      googleApiKey,
-      fetchAudio,
-      language,
-      speed,
-      loopCount,
-      play,
-      stopAll,
-      onLoopComplete,
-      playWithWebSpeech,
-      setError,
-    ],
+    [fetchAudio, play, stopAll, onLoopComplete, playWithWebSpeech, setError],
   );
 
   const handlePlay = useCallback(() => {
-    void playPhrase(text);
-  }, [playPhrase, text]);
+    if (!text.trim()) return;
+    unlockAudio();
+
+    if (googleApiKey) {
+      void playWithGoogleTts(text);
+    } else {
+      // iOS: never await network before speak — use device voice immediately
+      playWithWebSpeech(text);
+    }
+  }, [text, googleApiKey, playWithGoogleTts, playWithWebSpeech]);
+
+  const handlePreview = useCallback(
+    (previewText: string) => {
+      setText(previewText);
+      unlockAudio();
+      if (googleApiKey) {
+        void playWithGoogleTts(previewText);
+      } else {
+        playWithWebSpeech(previewText);
+      }
+    },
+    [googleApiKey, playWithGoogleTts, playWithWebSpeech],
+  );
 
   const handleTogglePause = useCallback(() => {
     if (webSpeechRef.current) {
@@ -255,6 +268,11 @@ export function PracticePanel({
           <p className="text-sm text-violet-300 text-center">{statusMsg}</p>
         )}
         {error && <p className="text-sm text-red-400 text-center">{error}</p>}
+        {!googleApiKey && (
+          <p className="text-xs text-gray-500 text-center">
+            iPhone: ▶ をタップすると端末音声で再生されます
+          </p>
+        )}
       </div>
 
       <AISuggestModal
@@ -263,10 +281,7 @@ export function PracticePanel({
         anthropicApiKey={anthropicApiKey}
         onClose={() => setShowAI(false)}
         onSelect={handleAISelect}
-        onPreview={(previewText) => {
-          setText(previewText);
-          void playPhrase(previewText);
-        }}
+        onPreview={handlePreview}
       />
     </div>
   );
