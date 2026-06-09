@@ -35,19 +35,52 @@ interface SynthesizeResponse {
   timepoints?: Timepoint[];
 }
 
-export async function synthesizeSpeech(
+function parseError(data: unknown, fallback: string): string {
+  return (
+    (data as { error?: { message?: string } }).error?.message ?? fallback
+  );
+}
+
+async function synthesizeDirect(
   text: string,
   language: Language,
   speed: number,
-): Promise<TTSResult> {
-  const textHash = await hashText(text);
-  const cacheKey = getCacheKey(language, speed, textHash);
-  const cached = readCache(cacheKey);
+  apiKey: string,
+): Promise<SynthesizeResponse> {
+  const config = LANGUAGE_CONFIG[language];
+  const response = await fetch(
+    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        input: { text },
+        voice: {
+          languageCode: config.languageCode,
+          name: config.voiceName,
+        },
+        audioConfig: {
+          audioEncoding: 'MP3',
+          speakingRate: speed,
+          pitch: 0,
+          enableTimePointing: ['WORD'],
+        },
+      }),
+    },
+  );
 
-  if (cached) {
-    return { ...cached, fromCache: true };
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(parseError(data, `TTS API error: ${response.status}`));
   }
+  return data as SynthesizeResponse;
+}
 
+async function synthesizeViaProxy(
+  text: string,
+  language: Language,
+  speed: number,
+): Promise<SynthesizeResponse> {
   const config = LANGUAGE_CONFIG[language];
   const response = await fetch(`${API_BASE}/tts`, {
     method: 'POST',
@@ -60,15 +93,40 @@ export async function synthesizeSpeech(
     }),
   });
 
+  const data = await response.json();
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(
-      (err as { error?: { message?: string } }).error?.message ??
-        `TTS API error: ${response.status}`,
-    );
+    throw new Error(parseError(data, `TTS proxy error: ${response.status}`));
+  }
+  return data as SynthesizeResponse;
+}
+
+export async function synthesizeSpeech(
+  text: string,
+  language: Language,
+  speed: number,
+  clientApiKey?: string,
+): Promise<TTSResult> {
+  const textHash = await hashText(text);
+  const cacheKey = getCacheKey(language, speed, textHash);
+  const cached = readCache(cacheKey);
+
+  if (cached) {
+    return { ...cached, fromCache: true };
   }
 
-  const data = (await response.json()) as SynthesizeResponse;
+  let data: SynthesizeResponse;
+  if (clientApiKey) {
+    data = await synthesizeDirect(text, language, speed, clientApiKey);
+  } else {
+    try {
+      data = await synthesizeViaProxy(text, language, speed);
+    } catch (proxyErr) {
+      throw new Error(
+        `${proxyErr instanceof Error ? proxyErr.message : 'TTS error'} — 設定（⚙️）から Google TTS APIキーを入力してください`,
+      );
+    }
+  }
+
   const timepoints = data.timepoints ?? [];
   const entry: CacheEntry = {
     audioContent: data.audioContent,

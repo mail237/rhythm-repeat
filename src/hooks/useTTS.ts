@@ -2,7 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import { synthesizeSpeech, base64ToAudioUrl } from '../services/googleTTS';
 import type { Language, Timepoint, TTSResult } from '../types';
 
-export function useTTS(onCharUsed?: (chars: number) => void) {
+export function useTTS(
+  googleApiKey?: string,
+  onCharUsed?: (chars: number) => void,
+) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const audioUrlRef = useRef<string | null>(null);
@@ -28,7 +31,12 @@ export function useTTS(onCharUsed?: (chars: number) => void) {
       setError(null);
 
       try {
-        const result = await synthesizeSpeech(text, language, speed);
+        const result = await synthesizeSpeech(
+          text,
+          language,
+          speed,
+          googleApiKey || undefined,
+        );
         cleanup();
         const audioUrl = base64ToAudioUrl(result.audioContent);
         audioUrlRef.current = audioUrl;
@@ -46,7 +54,7 @@ export function useTTS(onCharUsed?: (chars: number) => void) {
         setLoading(false);
       }
     },
-    [cleanup, onCharUsed],
+    [googleApiKey, cleanup, onCharUsed],
   );
 
   return { fetchAudio, loading, error, cleanup };

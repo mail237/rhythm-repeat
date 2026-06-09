@@ -6,6 +6,7 @@ import { LANGUAGE_CONFIG } from '../types';
 interface Props {
   open: boolean;
   language: Language;
+  anthropicApiKey: string;
   onClose: () => void;
   onSelect: (phrase: SuggestedPhrase) => void;
   onPreview: (text: string) => void;
@@ -14,6 +15,7 @@ interface Props {
 export function AISuggestModal({
   open,
   language,
+  anthropicApiKey,
   onClose,
   onSelect,
   onPreview,
@@ -31,7 +33,11 @@ export function AISuggestModal({
     setLoading(true);
     setError(null);
     try {
-      const phrases = await suggestPhrases(input, language);
+      const phrases = await suggestPhrases(
+        input,
+        language,
+        anthropicApiKey || undefined,
+      );
       setSuggestions(phrases);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'エラーが発生しました');

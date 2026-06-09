@@ -12,6 +12,8 @@ interface Props {
   language: Language;
   loopCount: number;
   speed: number;
+  googleApiKey: string;
+  anthropicApiKey: string;
   activePhraseId: string | null;
   initialText?: string;
   initialTranslation?: string;
@@ -31,6 +33,8 @@ export function PracticePanel({
   language,
   loopCount,
   speed,
+  googleApiKey,
+  anthropicApiKey,
   activePhraseId,
   initialText,
   initialTranslation,
@@ -48,7 +52,7 @@ export function PracticePanel({
   const [sessionTotal, setSessionTotal] = useState(0);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
-  const { fetchAudio, loading, error, cleanup } = useTTS(onCharUsed);
+  const { fetchAudio, loading, error, cleanup } = useTTS(googleApiKey, onCharUsed);
   const { play, stop, togglePause, isPlaying, activeWordIndex } = usePlayback();
 
   useEffect(() => {
@@ -160,11 +164,17 @@ export function PracticePanel({
         </button>
         {statusMsg && <p className="text-sm text-green-400">{statusMsg}</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}
+        {!googleApiKey && (
+          <p className="text-sm text-amber-400 text-center">
+            ⚠️ ⚙️ 設定から Google TTS APIキーを入力してください
+          </p>
+        )}
       </div>
 
       <AISuggestModal
         open={showAI}
         language={language}
+        anthropicApiKey={anthropicApiKey}
         onClose={() => setShowAI(false)}
         onSelect={handleAISelect}
         onPreview={(previewText) => {

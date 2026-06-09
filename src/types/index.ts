@@ -21,6 +21,8 @@ export interface AppSettings {
   defaultLanguage: Language;
   defaultLoopCount: number;
   defaultSpeed: number;
+  googleTtsApiKey: string;
+  anthropicApiKey: string;
   monthlyCharCount: number;
   monthlyCharCountResetAt: string;
 }
@@ -65,6 +67,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultLanguage: 'en',
   defaultLoopCount: 3,
   defaultSpeed: 1.0,
+  googleTtsApiKey: '',
+  anthropicApiKey: '',
   monthlyCharCount: 0,
   monthlyCharCountResetAt: new Date().toISOString(),
 };
