@@ -45,7 +45,7 @@ async function suggestWithGemini(
 
     if (!response.ok) {
       lastError = data.error?.message ?? `Gemini error ${response.status}`;
-      if (response.status === 404 || response.status === 429) continue;
+      if ([404, 429, 503].includes(response.status)) continue;
       throw new Error(lastError);
     }
 

@@ -152,7 +152,7 @@ Respond ONLY in JSON format:
 
     data = await response.json();
     if (response.ok) break;
-    if (response.status !== 404 && response.status !== 429) {
+    if (response.status !== 404 && response.status !== 429 && response.status !== 503) {
       sendJson(res, data, response.status);
       return;
     }
