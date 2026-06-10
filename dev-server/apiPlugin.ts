@@ -21,7 +21,6 @@ async function handleTts(
   req: IncomingMessage,
   res: ServerResponse,
   geminiKey: string,
-  cloudKey: string,
 ) {
   const body = JSON.parse(await readBody(req)) as {
     text: string;
@@ -30,49 +29,21 @@ async function handleTts(
     speed: number;
   };
 
-  if (geminiKey) {
-    try {
-      const result = await synthesizeWithGemini(
-        geminiKey,
-        body.text,
-        body.languageCode,
-      );
-      sendJson(res, {
-        audioContent: result.audioContent,
-        mimeType: result.mimeType,
-        timepoints: [],
-      });
-      return;
-    } catch {
-      if (!cloudKey) throw new Error('Gemini TTS failed');
-    }
-  }
-
-  if (!cloudKey) {
-    sendJson(res, { error: { message: 'TTS API key not set' } }, 500);
+  if (!geminiKey) {
+    sendJson(res, { error: { message: 'GEMINI_API_KEY not set' } }, 500);
     return;
   }
 
-  const response = await fetch(
-    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${cloudKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        input: { text: body.text },
-        voice: { languageCode: body.languageCode, name: body.voiceName },
-        audioConfig: {
-          audioEncoding: 'MP3',
-          speakingRate: body.speed,
-          pitch: 0,
-          enableTimePointing: ['WORD'],
-        },
-      }),
-    },
+  const result = await synthesizeWithGemini(
+    geminiKey,
+    body.text,
+    body.languageCode,
   );
-
-  const data = await response.json();
-  sendJson(res, data, response.status);
+  sendJson(res, {
+    audioContent: result.audioContent,
+    mimeType: result.mimeType,
+    timepoints: [],
+  });
 }
 
 async function handleClaude(
@@ -277,9 +248,7 @@ function createMiddleware(env: Record<string, string>) {
     try {
       if (url === '/api/tts') {
         const geminiKey = env.GEMINI_API_KEY || '';
-        const cloudKey =
-          env.GOOGLE_TTS_API_KEY || env.VITE_GOOGLE_TTS_API_KEY || '';
-        if (!geminiKey && !cloudKey) {
+        if (!geminiKey) {
           sendJson(
             res,
             { error: { message: 'GEMINI_API_KEY not set in .env' } },
@@ -287,7 +256,7 @@ function createMiddleware(env: Record<string, string>) {
           );
           return;
         }
-        await handleTts(req, res, geminiKey, cloudKey);
+        await handleTts(req, res, geminiKey);
         return;
       }
 

@@ -1,6 +1,6 @@
 import type { AppSettings } from '../types';
 import { LANGUAGE_CONFIG, LOOP_OPTIONS, SPEED_OPTIONS } from '../types';
-import { hasAnthropicKey, hasTtsKey } from '../utils/apiKeys';
+import { hasAnthropicKey } from '../utils/apiKeys';
 import { hasServerProxy } from '../config/api';
 
 interface Props {
@@ -33,7 +33,7 @@ export function SettingsModal({ open, settings, onClose, onSave }: Props) {
     const fd = new FormData(e.currentTarget);
     const loopVal = fd.get('defaultLoopCount');
     onSave({
-      googleTtsApiKey: String(fd.get('googleTtsApiKey') ?? '').trim(),
+      googleTtsApiKey: '',
       anthropicApiKey: String(fd.get('anthropicApiKey') ?? '').trim(),
       defaultLanguage: (fd.get('defaultLanguage') as 'en' | 'de') ?? 'en',
       defaultLoopCount: loopVal === 'Infinity' ? Infinity : Number(loopVal),
@@ -56,21 +56,9 @@ export function SettingsModal({ open, settings, onClose, onSave }: Props) {
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="bg-gray-800/50 rounded-xl p-3 flex flex-col gap-2">
             <KeyStatus ok={hasServerProxy()} label="AIフレーズ提案" />
-            <KeyStatus ok={hasTtsKey(settings)} label="Google TTS（任意）" />
+            <KeyStatus ok={hasServerProxy()} label="音声（TTS）" />
             <KeyStatus ok={hasAnthropicKey(settings)} label="Anthropic（任意）" />
           </div>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm text-gray-400">Google TTS API Key</span>
-            <input
-              name="googleTtsApiKey"
-              type="password"
-              defaultValue={settings.googleTtsApiKey}
-              placeholder="AIza..."
-              autoComplete="off"
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-          </label>
 
           <label className="flex flex-col gap-1.5">
             <span className="text-sm text-gray-400">Anthropic API Key</span>
@@ -156,9 +144,8 @@ export function SettingsModal({ open, settings, onClose, onSave }: Props) {
           </div>
 
           <p className="text-xs text-gray-500 leading-relaxed">
-            AIフレーズ提案はサーバー経由で使えます（キー不要）。音声は API
-            キー未設定でも端末音声（Web Speech）で練習できます。Google TTS
-            キーを設定すると高音質 TTS が使えます。
+            AI提案・翻訳・音声はサーバー経由で使えます（キー不要）。上限に達した場合は
+            しばらく待ってからお試しください。
           </p>
 
           <div className="flex gap-2 justify-end pt-2">

@@ -15,7 +15,7 @@ function loadSettings(): AppSettings {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
     const stored = parseStoredSettings(raw);
-    return { ...DEFAULT_SETTINGS, ...stored };
+    return { ...DEFAULT_SETTINGS, ...stored, googleTtsApiKey: '' };
   } catch {
     return { ...DEFAULT_SETTINGS };
   }

@@ -23,7 +23,6 @@ interface Props {
   language: Language;
   loopCount: number;
   speed: number;
-  googleApiKey: string;
   anthropicApiKey: string;
   activePhraseId: string | null;
   initialText?: string;
@@ -44,7 +43,6 @@ export function PracticePanel({
   language,
   loopCount,
   speed,
-  googleApiKey,
   anthropicApiKey,
   activePhraseId,
   initialText,
@@ -78,10 +76,7 @@ export function PracticePanel({
     activePhraseId,
   };
 
-  const { fetchAudio, loading, error, cleanup, setError } = useTTS(
-    googleApiKey,
-    onCharUsed,
-  );
+  const { fetchAudio, loading, error, cleanup, setError } = useTTS(onCharUsed);
   const { play, stop: stopAudio, togglePause, isPlaying, activeWordIndex } =
     usePlayback();
 
@@ -181,14 +176,16 @@ export function PracticePanel({
         const result = await fetchAudio(phraseText, lang, spd);
         await startPlayback(result.audioUrl, result.timepoints);
       } catch (e) {
-        if (isIOS()) {
-          setError(
-            e instanceof Error
-              ? e.message
-              : '音声の取得に失敗しました。もう一度▶をタップしてください',
-          );
-          return;
-        }
+        const message =
+          e instanceof Error
+            ? e.message
+            : '音声の取得に失敗しました。もう一度▶をタップしてください';
+        setError(message);
+        setStatusMsg(
+          isIOS()
+            ? '📱 端末音声で再生します（ロック画面では止まる場合があります）'
+            : '端末音声で再生します',
+        );
         playWithWebSpeech(phraseText);
       }
     },

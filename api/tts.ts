@@ -11,30 +11,12 @@ interface TTSRequestBody {
   speed: number;
 }
 
-async function synthesizeWithCloudTts(
-  apiKey: string,
-  body: TTSRequestBody,
-): Promise<Response> {
-  const response = await fetch(
-    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        input: { text: body.text },
-        voice: { languageCode: body.languageCode, name: body.voiceName },
-        audioConfig: {
-          audioEncoding: 'MP3',
-          speakingRate: body.speed,
-          pitch: 0,
-          enableTimePointing: ['WORD'],
-        },
-      }),
-    },
-  );
-
-  const data = await response.json();
-  return jsonResponse(data, response.status);
+function formatServerTtsError(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes('quota') || lower.includes('429') || lower.includes('resource_exhausted')) {
+    return '音声の利用上限に達しました。しばらく待ってからもう一度お試しください。';
+  }
+  return message;
 }
 
 export default async function handler(request: Request): Promise<Response> {
@@ -43,42 +25,24 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   const geminiKey = process.env.GEMINI_API_KEY;
-  const cloudKey = process.env.GOOGLE_TTS_API_KEY;
-
-  if (!geminiKey && !cloudKey) {
-    return errorResponse(
-      'GEMINI_API_KEY or GOOGLE_TTS_API_KEY is not configured on the server',
-      500,
-    );
+  if (!geminiKey) {
+    return errorResponse('GEMINI_API_KEY is not configured on the server', 500);
   }
 
   try {
     const body = await readJsonBody<TTSRequestBody>(request);
-
-    if (geminiKey) {
-      try {
-        const result = await synthesizeWithGemini(
-          geminiKey,
-          body.text,
-          body.languageCode,
-        );
-        return jsonResponse({
-          audioContent: result.audioContent,
-          mimeType: result.mimeType,
-          timepoints: [],
-        });
-      } catch (geminiErr) {
-        if (!cloudKey) throw geminiErr;
-      }
-    }
-
-    if (cloudKey) {
-      return synthesizeWithCloudTts(cloudKey, body);
-    }
-
-    return errorResponse('TTS failed', 500);
+    const result = await synthesizeWithGemini(
+      geminiKey,
+      body.text,
+      body.languageCode,
+    );
+    return jsonResponse({
+      audioContent: result.audioContent,
+      mimeType: result.mimeType,
+      timepoints: [],
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'TTS proxy error';
-    return errorResponse(message, 500);
+    return errorResponse(formatServerTtsError(message), 500);
   }
 }

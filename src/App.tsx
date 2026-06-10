@@ -102,7 +102,6 @@ export default function App() {
             language={language}
             loopCount={loopCount}
             speed={speed}
-            googleApiKey={settings.googleTtsApiKey}
             anthropicApiKey={settings.anthropicApiKey}
             activePhraseId={activePhraseId}
             initialText={practiceText}
