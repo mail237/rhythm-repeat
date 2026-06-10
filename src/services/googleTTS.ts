@@ -11,7 +11,7 @@ interface CacheEntry {
 }
 
 function getCacheKey(lang: Language, speed: number, textHash: string): string {
-  return `tts_cache_${lang}_${speed}_${textHash}`;
+  return `tts_cache_gemini31_${lang}_${speed}_${textHash}`;
 }
 
 function readCache(key: string): CacheEntry | null {

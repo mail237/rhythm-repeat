@@ -1,11 +1,13 @@
 const GEMINI_TTS_MODELS = [
+  'gemini-3.1-flash-tts-preview',
   'gemini-2.5-flash-preview-tts',
   'gemini-2.5-pro-preview-tts',
 ] as const;
 
+/** Natural, conversational voices for phrase practice. */
 const VOICE_BY_LANG: Record<string, string> = {
-  'en-US': 'Kore',
-  'de-DE': 'Charon',
+  'en-US': 'Aoede',
+  'de-DE': 'Aoede',
 };
 
 function writeString(view: DataView, offset: number, value: string): void {
@@ -62,13 +64,20 @@ function languageHint(languageCode: string): string {
   return 'English';
 }
 
+function buildSpeechPrompt(text: string, languageCode: string): string {
+  const lang = languageHint(languageCode);
+  return `Read the following ${lang} phrase aloud in a warm, natural conversational tone — like a native speaker in everyday life. Speak clearly at a moderate pace. Do not add extra words.
+
+"${text}"`;
+}
+
 export async function synthesizeWithGemini(
   apiKey: string,
   text: string,
   languageCode: string,
 ): Promise<{ audioContent: string; mimeType: string }> {
-  const voiceName = VOICE_BY_LANG[languageCode] ?? 'Kore';
-  const prompt = `Say naturally in ${languageHint(languageCode)}: ${text}`;
+  const voiceName = VOICE_BY_LANG[languageCode] ?? 'Aoede';
+  const prompt = buildSpeechPrompt(text, languageCode);
   let lastError = 'Gemini TTS error';
 
   for (const model of GEMINI_TTS_MODELS) {

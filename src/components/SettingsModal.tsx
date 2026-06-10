@@ -80,14 +80,14 @@ export function SettingsModal({ open, settings, onClose, onSave }: Props) {
                 <input
                   type="radio"
                   name="voiceEngine"
-                  value="device"
-                  defaultChecked={settings.voiceEngine === 'device'}
+                  value="server"
+                  defaultChecked={settings.voiceEngine !== 'device'}
                   className="mt-1"
                 />
                 <span className="text-sm">
-                  <span className="text-gray-200">端末音声（おすすめ）</span>
+                  <span className="text-gray-200">Gemini TTS（おすすめ）</span>
                   <span className="block text-xs text-gray-500 mt-0.5">
-                    iPhoneの自然な声。以前と同じ再生方式です。
+                    自然なネイティブ発音。バックグラウンド再生にも対応。
                   </span>
                 </span>
               </label>
@@ -95,14 +95,14 @@ export function SettingsModal({ open, settings, onClose, onSave }: Props) {
                 <input
                   type="radio"
                   name="voiceEngine"
-                  value="server"
-                  defaultChecked={settings.voiceEngine === 'server'}
+                  value="device"
+                  defaultChecked={settings.voiceEngine === 'device'}
                   className="mt-1"
                 />
                 <span className="text-sm">
-                  <span className="text-gray-200">サーバー音声</span>
+                  <span className="text-gray-200">端末音声</span>
                   <span className="block text-xs text-gray-500 mt-0.5">
-                    ロック画面・バックグラウンド再生に対応。
+                    iPhone内蔵の読み上げ音声。
                   </span>
                 </span>
               </label>

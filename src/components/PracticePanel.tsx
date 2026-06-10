@@ -302,8 +302,8 @@ export function PracticePanel({
         {error && <p className="text-sm text-red-400 text-center">{error}</p>}
         <p className="text-xs text-gray-500 text-center">
           {voiceEngine === 'device'
-            ? '端末音声で再生します（⚙️ でサーバー音声に切り替え可）'
-            : 'ロック画面・バックグラウンドでも再生を続けられます（▶ タップ後）'}
+            ? '端末音声で再生します（⚙️ で Gemini TTS に切り替え可）'
+            : 'Gemini TTS で再生します。ロック画面・バックグラウンドにも対応'}
         </p>
       </div>
 

@@ -70,7 +70,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultLanguage: 'en',
   defaultLoopCount: 3,
   defaultSpeed: 1.0,
-  voiceEngine: 'device',
+  voiceEngine: 'server',
   googleTtsApiKey: '',
   anthropicApiKey: '',
   monthlyCharCount: 0,
