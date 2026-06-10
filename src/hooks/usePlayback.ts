@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActiveWordIndex } from '../utils/words';
 import { unlockAudio } from '../utils/audioUnlock';
+import {
+  clearMediaSession,
+  setMediaSessionHandlers,
+  setMediaSessionPlaybackState,
+  updateMediaSessionMetadata,
+} from '../utils/mediaSession';
+import { getSharedAudioElement } from '../utils/sharedAudio';
 import type { Timepoint } from '../types';
 
 interface PlaybackOptions {
   loopCount: number;
+  phraseText?: string;
+  languageLabel?: string;
   onLoopComplete?: () => void;
 }
 
@@ -18,6 +27,14 @@ export function usePlayback() {
   const onLoopCompleteRef = useRef<(() => void) | undefined>(undefined);
   const rafRef = useRef<number>(0);
 
+  const updateHighlight = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || audio.paused) return;
+    setActiveWordIndex(
+      getActiveWordIndex(audio.currentTime, timepointsRef.current),
+    );
+  }, []);
+
   const stopHighlightLoop = useCallback(() => {
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
@@ -27,16 +44,14 @@ export function usePlayback() {
 
   const startHighlightLoop = useCallback(() => {
     const tick = () => {
+      updateHighlight();
       const audio = audioRef.current;
       if (audio && !audio.paused) {
-        setActiveWordIndex(
-          getActiveWordIndex(audio.currentTime, timepointsRef.current),
-        );
         rafRef.current = requestAnimationFrame(tick);
       }
     };
     rafRef.current = requestAnimationFrame(tick);
-  }, []);
+  }, [updateHighlight]);
 
   const stop = useCallback(() => {
     stopHighlightLoop();
@@ -44,11 +59,64 @@ export function usePlayback() {
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
+      audio.onended = null;
+      audio.onplay = null;
+      audio.onpause = null;
+      audio.ontimeupdate = null;
     }
     setIsPlaying(false);
     setCurrentLoop(0);
     setActiveWordIndex(-1);
+    clearMediaSession();
   }, [stopHighlightLoop]);
+
+  const togglePause = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (audio.paused) {
+      void audio.play();
+      startHighlightLoop();
+      setMediaSessionPlaybackState('playing');
+      setIsPlaying(true);
+    } else {
+      audio.pause();
+      stopHighlightLoop();
+      setMediaSessionPlaybackState('paused');
+      setIsPlaying(false);
+    }
+  }, [startHighlightLoop, stopHighlightLoop]);
+
+  useEffect(() => {
+    setMediaSessionHandlers({
+      onPlay: () => {
+        const audio = audioRef.current;
+        if (!audio || !audio.paused) return;
+        void audio.play();
+        startHighlightLoop();
+        setMediaSessionPlaybackState('playing');
+        setIsPlaying(true);
+      },
+      onPause: () => {
+        const audio = audioRef.current;
+        if (!audio || audio.paused) return;
+        audio.pause();
+        stopHighlightLoop();
+        setMediaSessionPlaybackState('paused');
+        setIsPlaying(false);
+      },
+      onStop: () => stop(),
+    });
+
+    return () => {
+      stopHighlightLoop();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      clearMediaSession();
+    };
+  }, [stop, stopHighlightLoop, togglePause]);
 
   const play = useCallback(
     async (audioUrl: string, timepoints: Timepoint[], options: PlaybackOptions) => {
@@ -58,10 +126,17 @@ export function usePlayback() {
       onLoopCompleteRef.current = options.onLoopComplete;
       timepointsRef.current = timepoints;
 
-      const audio = new Audio(audioUrl);
-      audio.setAttribute('playsinline', 'true');
-      audio.preload = 'auto';
+      const audio = getSharedAudioElement();
       audioRef.current = audio;
+      audio.src = audioUrl;
+      audio.currentTime = 0;
+
+      if (options.phraseText) {
+        updateMediaSessionMetadata(
+          options.phraseText,
+          options.languageLabel ?? 'Language Practice',
+        );
+      }
 
       let loopsDone = 0;
 
@@ -78,11 +153,13 @@ export function usePlayback() {
           stopHighlightLoop();
           setIsPlaying(false);
           setActiveWordIndex(-1);
+          setMediaSessionPlaybackState('none');
         }
       };
 
       audio.onplay = () => {
         setIsPlaying(true);
+        setMediaSessionPlaybackState('playing');
         startHighlightLoop();
       };
 
@@ -90,6 +167,11 @@ export function usePlayback() {
         if (audio.ended) return;
         stopHighlightLoop();
         setIsPlaying(false);
+        setMediaSessionPlaybackState('paused');
+      };
+
+      audio.ontimeupdate = () => {
+        if (document.hidden) updateHighlight();
       };
 
       setCurrentLoop(0);
@@ -100,31 +182,8 @@ export function usePlayback() {
         throw new Error('音声の再生に失敗しました。もう一度▶をタップしてください');
       }
     },
-    [stop, stopHighlightLoop, startHighlightLoop],
+    [stop, stopHighlightLoop, startHighlightLoop, updateHighlight],
   );
-
-  const togglePause = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    if (audio.paused) {
-      void audio.play();
-      startHighlightLoop();
-    } else {
-      audio.pause();
-      stopHighlightLoop();
-    }
-  }, [startHighlightLoop, stopHighlightLoop]);
-
-  useEffect(() => {
-    return () => {
-      stopHighlightLoop();
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, [stopHighlightLoop]);
 
   return {
     play,

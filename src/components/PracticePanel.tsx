@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Language, SuggestedPhrase } from '../types';
+import type { Language, SuggestedPhrase, Timepoint } from '../types';
 import { LanguageTabs } from './LanguageTabs';
 import { PhraseDisplay } from './PhraseDisplay';
 import { PlaybackControls } from './PlaybackControls';
@@ -13,7 +13,9 @@ import {
   warmUpSpeechSynthesis,
   type WebSpeechHandle,
 } from '../services/webSpeechTTS';
+import { base64ToAudioUrl, getCachedSpeech } from '../services/googleTTS';
 import { unlockAudio } from '../utils/audioUnlock';
+import { LANGUAGE_CONFIG } from '../types';
 
 interface Props {
   language: Language;
@@ -143,16 +145,30 @@ export function PracticePanel({
       stopAll();
       unlockAudio();
 
-      try {
-        const result = await fetchAudio(
+      const { language: lang, speed: spd, loopCount: loops } = optsRef.current;
+      const languageLabel = LANGUAGE_CONFIG[lang].label;
+
+      const startPlayback = async (audioUrl: string, timepoints: Timepoint[]) => {
+        await play(audioUrl, timepoints, {
+          loopCount: loops,
           phraseText,
-          optsRef.current.language,
-          optsRef.current.speed,
-        );
-        await play(result.audioUrl, result.timepoints, {
-          loopCount: optsRef.current.loopCount,
+          languageLabel,
           onLoopComplete,
         });
+      };
+
+      try {
+        const cached = await getCachedSpeech(phraseText, lang, spd);
+        if (cached) {
+          await startPlayback(
+            base64ToAudioUrl(cached.audioContent),
+            cached.timepoints,
+          );
+          return;
+        }
+
+        const result = await fetchAudio(phraseText, lang, spd);
+        await startPlayback(result.audioUrl, result.timepoints);
       } catch {
         playWithWebSpeech(phraseText);
       }
@@ -163,26 +179,16 @@ export function PracticePanel({
   const handlePlay = useCallback(() => {
     if (!text.trim()) return;
     unlockAudio();
-
-    if (googleApiKey) {
-      void playWithGoogleTts(text);
-    } else {
-      // iOS: never await network before speak — use device voice immediately
-      playWithWebSpeech(text);
-    }
-  }, [text, googleApiKey, playWithGoogleTts, playWithWebSpeech]);
+    void playWithGoogleTts(text);
+  }, [text, playWithGoogleTts]);
 
   const handlePreview = useCallback(
     (previewText: string) => {
       setText(previewText);
       unlockAudio();
-      if (googleApiKey) {
-        void playWithGoogleTts(previewText);
-      } else {
-        playWithWebSpeech(previewText);
-      }
+      void playWithGoogleTts(previewText);
     },
-    [googleApiKey, playWithGoogleTts, playWithWebSpeech],
+    [playWithGoogleTts],
   );
 
   const handleTogglePause = useCallback(() => {
@@ -268,11 +274,9 @@ export function PracticePanel({
           <p className="text-sm text-violet-300 text-center">{statusMsg}</p>
         )}
         {error && <p className="text-sm text-red-400 text-center">{error}</p>}
-        {!googleApiKey && (
-          <p className="text-xs text-gray-500 text-center">
-            iPhone: ▶ をタップすると端末音声で再生されます
-          </p>
-        )}
+        <p className="text-xs text-gray-500 text-center">
+          ロック画面・バックグラウンドでも再生を続けられます（▶ タップ後）
+        </p>
       </div>
 
       <AISuggestModal

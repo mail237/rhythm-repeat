@@ -100,6 +100,18 @@ async function synthesizeViaProxy(
   return data as SynthesizeResponse;
 }
 
+export async function getCachedSpeech(
+  text: string,
+  language: Language,
+  speed: number,
+): Promise<TTSResult | null> {
+  const textHash = await hashText(text);
+  const cacheKey = getCacheKey(language, speed, textHash);
+  const cached = readCache(cacheKey);
+  if (!cached) return null;
+  return { ...cached, fromCache: true };
+}
+
 export async function synthesizeSpeech(
   text: string,
   language: Language,

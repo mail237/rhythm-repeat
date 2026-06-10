@@ -1,3 +1,5 @@
+import { primeAudioPlayback } from './sharedAudio';
+
 export function isIOS(): boolean {
   if (typeof navigator === 'undefined') return false;
   return (
@@ -27,4 +29,6 @@ export function unlockAudio(): void {
     window.speechSynthesis.getVoices();
     window.speechSynthesis.cancel();
   }
+
+  primeAudioPlayback();
 }
