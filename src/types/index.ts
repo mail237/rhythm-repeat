@@ -1,4 +1,5 @@
 export type Language = 'en' | 'de';
+export type VoiceEngine = 'device' | 'server';
 
 export interface PhraseStats {
   totalPlays: number;
@@ -21,6 +22,7 @@ export interface AppSettings {
   defaultLanguage: Language;
   defaultLoopCount: number;
   defaultSpeed: number;
+  voiceEngine: VoiceEngine;
   googleTtsApiKey: string;
   anthropicApiKey: string;
   monthlyCharCount: number;
@@ -68,6 +70,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultLanguage: 'en',
   defaultLoopCount: 3,
   defaultSpeed: 1.0,
+  voiceEngine: 'device',
   googleTtsApiKey: '',
   anthropicApiKey: '',
   monthlyCharCount: 0,

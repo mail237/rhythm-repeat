@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Language, SuggestedPhrase, Timepoint } from '../types';
+import type { Language, SuggestedPhrase, Timepoint, VoiceEngine } from '../types';
 import { LanguageTabs } from './LanguageTabs';
 import { PhraseDisplay } from './PhraseDisplay';
 import { PlaybackControls } from './PlaybackControls';
@@ -23,6 +23,7 @@ interface Props {
   language: Language;
   loopCount: number;
   speed: number;
+  voiceEngine: VoiceEngine;
   anthropicApiKey: string;
   activePhraseId: string | null;
   initialText?: string;
@@ -43,6 +44,7 @@ export function PracticePanel({
   language,
   loopCount,
   speed,
+  voiceEngine,
   anthropicApiKey,
   activePhraseId,
   initialText,
@@ -193,16 +195,24 @@ export function PracticePanel({
   const handlePlay = useCallback(() => {
     if (!text.trim()) return;
     unlockAudio();
-    void playWithGoogleTts(text);
-  }, [text, playWithGoogleTts]);
+    if (voiceEngine === 'device') {
+      playWithWebSpeech(text);
+    } else {
+      void playWithGoogleTts(text);
+    }
+  }, [text, voiceEngine, playWithGoogleTts, playWithWebSpeech]);
 
   const handlePreview = useCallback(
     (previewText: string) => {
       setText(previewText);
       unlockAudio();
-      void playWithGoogleTts(previewText);
+      if (voiceEngine === 'device') {
+        playWithWebSpeech(previewText);
+      } else {
+        void playWithGoogleTts(previewText);
+      }
     },
-    [playWithGoogleTts],
+    [voiceEngine, playWithGoogleTts, playWithWebSpeech],
   );
 
   const handleTogglePause = useCallback(() => {
@@ -291,7 +301,9 @@ export function PracticePanel({
         )}
         {error && <p className="text-sm text-red-400 text-center">{error}</p>}
         <p className="text-xs text-gray-500 text-center">
-          ロック画面・バックグラウンドでも再生を続けられます（▶ タップ後）
+          {voiceEngine === 'device'
+            ? '端末音声で再生します（⚙️ でサーバー音声に切り替え可）'
+            : 'ロック画面・バックグラウンドでも再生を続けられます（▶ タップ後）'}
         </p>
       </div>
 

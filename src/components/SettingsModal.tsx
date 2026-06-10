@@ -38,6 +38,7 @@ export function SettingsModal({ open, settings, onClose, onSave }: Props) {
       defaultLanguage: (fd.get('defaultLanguage') as 'en' | 'de') ?? 'en',
       defaultLoopCount: loopVal === 'Infinity' ? Infinity : Number(loopVal),
       defaultSpeed: Number(fd.get('defaultSpeed')),
+      voiceEngine: (fd.get('voiceEngine') as 'device' | 'server') ?? 'device',
     });
     onClose();
   };
@@ -71,6 +72,42 @@ export function SettingsModal({ open, settings, onClose, onSave }: Props) {
               className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
           </label>
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm text-gray-400 mb-1">音声エンジン</legend>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-start gap-2 rounded-lg bg-gray-800 px-3 py-2.5 cursor-pointer has-[:checked]:ring-1 has-[:checked]:ring-violet-500">
+                <input
+                  type="radio"
+                  name="voiceEngine"
+                  value="device"
+                  defaultChecked={settings.voiceEngine === 'device'}
+                  className="mt-1"
+                />
+                <span className="text-sm">
+                  <span className="text-gray-200">端末音声（おすすめ）</span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    iPhoneの自然な声。以前と同じ再生方式です。
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 rounded-lg bg-gray-800 px-3 py-2.5 cursor-pointer has-[:checked]:ring-1 has-[:checked]:ring-violet-500">
+                <input
+                  type="radio"
+                  name="voiceEngine"
+                  value="server"
+                  defaultChecked={settings.voiceEngine === 'server'}
+                  className="mt-1"
+                />
+                <span className="text-sm">
+                  <span className="text-gray-200">サーバー音声</span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    ロック画面・バックグラウンド再生に対応。
+                  </span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
 
           <fieldset className="flex flex-col gap-2">
             <legend className="text-sm text-gray-400 mb-1">デフォルト言語</legend>
