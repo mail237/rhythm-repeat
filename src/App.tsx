@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { Language, Phrase } from './types';
+import { normalizeLoopCount } from './utils/loopCount';
 import { PracticePanel } from './components/PracticePanel';
 import { PhraseLibrary } from './components/PhraseLibrary';
 import { SettingsModal } from './components/SettingsModal';
@@ -17,7 +18,9 @@ export default function App() {
   const [view, setView] = useState<View>('practice');
   const [showSettings, setShowSettings] = useState(false);
   const [language, setLanguage] = useState<Language>(settings.defaultLanguage);
-  const [loopCount, setLoopCount] = useState(settings.defaultLoopCount);
+  const [loopCount, setLoopCount] = useState(() =>
+    normalizeLoopCount(settings.defaultLoopCount),
+  );
   const [speed, setSpeed] = useState(settings.defaultSpeed);
   const [activePhraseId, setActivePhraseId] = useState<string | null>(null);
   const [practiceText, setPracticeText] = useState<string | undefined>();

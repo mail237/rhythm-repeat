@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActiveWordIndex } from '../utils/words';
 import { unlockAudio } from '../utils/audioUnlock';
+import { isInfiniteLoop, normalizeLoopCount } from '../utils/loopCount';
 import {
   clearMediaSession,
   setMediaSessionHandlers,
@@ -31,6 +32,8 @@ export function usePlayback() {
   const loopCountRef = useRef(1);
   const onLoopCompleteRef = useRef<(() => void) | undefined>(undefined);
   const rafRef = useRef<number>(0);
+  const lastTimeRef = useRef(0);
+  const loopsDoneRef = useRef(0);
 
   const updateHighlight = useCallback(() => {
     const audio = audioRef.current;
@@ -58,10 +61,10 @@ export function usePlayback() {
     rafRef.current = requestAnimationFrame(tick);
   }, [updateHighlight]);
 
-  const stop = useCallback(() => {
-    stopHighlightLoop();
+  const finishPlayback = useCallback(() => {
     const audio = audioRef.current;
     if (audio) {
+      audio.loop = false;
       audio.pause();
       audio.currentTime = 0;
       audio.onended = null;
@@ -69,12 +72,20 @@ export function usePlayback() {
       audio.onpause = null;
       audio.ontimeupdate = null;
     }
+    stopHighlightLoop();
     setIsPlaying(false);
-    setCurrentLoop(0);
     setActiveWordIndex(-1);
+    setMediaSessionPlaybackState('none');
     stopAudioKeepalive();
-    clearMediaSession();
   }, [stopHighlightLoop]);
+
+  const stop = useCallback(() => {
+    finishPlayback();
+    setCurrentLoop(0);
+    loopsDoneRef.current = 0;
+    lastTimeRef.current = 0;
+    clearMediaSession();
+  }, [finishPlayback]);
 
   const togglePause = useCallback(() => {
     const audio = audioRef.current;
@@ -96,7 +107,7 @@ export function usePlayback() {
   useEffect(() => {
     const resumeIfNeeded = () => {
       const audio = audioRef.current;
-      if (!audio || audio.paused || audio.ended) return;
+      if (!audio || !audio.paused || audio.ended) return;
       void audio.play().catch(() => {
         // ignore
       });
@@ -136,21 +147,25 @@ export function usePlayback() {
       stopAudioKeepalive();
       clearMediaSession();
     };
-  }, [stop, stopHighlightLoop, togglePause]);
+  }, [stop, stopHighlightLoop, startHighlightLoop]);
 
   const play = useCallback(
     async (audioUrl: string, timepoints: Timepoint[], options: PlaybackOptions) => {
       stop();
 
-      loopCountRef.current = options.loopCount;
+      const maxLoops = normalizeLoopCount(options.loopCount);
+      loopCountRef.current = maxLoops;
       onLoopCompleteRef.current = options.onLoopComplete;
       timepointsRef.current = timepoints;
+      loopsDoneRef.current = 0;
+      lastTimeRef.current = 0;
 
       const audio = getSharedAudioElement();
       audioRef.current = audio;
       audio.src = audioUrl;
       audio.currentTime = 0;
       audio.playbackRate = options.playbackRate ?? 1;
+      audio.loop = maxLoops !== 1;
 
       if (options.phraseText) {
         updateMediaSessionMetadata(
@@ -159,25 +174,24 @@ export function usePlayback() {
         );
       }
 
-      let loopsDone = 0;
-
-      audio.onended = () => {
-        loopsDone++;
-        setCurrentLoop(loopsDone);
+      const handleLoopWrap = () => {
+        loopsDoneRef.current += 1;
+        setCurrentLoop(loopsDoneRef.current);
         onLoopCompleteRef.current?.();
 
-        const maxLoops = loopCountRef.current;
-        if (maxLoops === Infinity || loopsDone < maxLoops) {
-          audio.currentTime = 0;
-          void audio.play().catch(() => setIsPlaying(false));
-        } else {
-          stopHighlightLoop();
-          setIsPlaying(false);
-          setActiveWordIndex(-1);
-          setMediaSessionPlaybackState('none');
-          stopAudioKeepalive();
+        if (!isInfiniteLoop(maxLoops) && loopsDoneRef.current >= maxLoops) {
+          finishPlayback();
         }
       };
+
+      if (maxLoops === 1) {
+        audio.onended = () => {
+          loopsDoneRef.current = 1;
+          setCurrentLoop(1);
+          onLoopCompleteRef.current?.();
+          finishPlayback();
+        };
+      }
 
       audio.onplay = () => {
         setIsPlaying(true);
@@ -187,13 +201,19 @@ export function usePlayback() {
       };
 
       audio.onpause = () => {
-        if (audio.ended) return;
+        if (audio.ended && maxLoops === 1) return;
+        if (!audio.loop && audio.ended) return;
         stopHighlightLoop();
         setIsPlaying(false);
         setMediaSessionPlaybackState('paused');
       };
 
       audio.ontimeupdate = () => {
+        const t = audio.currentTime;
+        if (maxLoops !== 1 && t + 0.25 < lastTimeRef.current) {
+          handleLoopWrap();
+        }
+        lastTimeRef.current = t;
         if (document.hidden) updateHighlight();
       };
 
@@ -205,7 +225,7 @@ export function usePlayback() {
         throw new Error('音声の再生に失敗しました。もう一度▶をタップしてください');
       }
     },
-    [stop, stopHighlightLoop, startHighlightLoop, updateHighlight],
+    [stop, finishPlayback, startHighlightLoop, updateHighlight],
   );
 
   return {

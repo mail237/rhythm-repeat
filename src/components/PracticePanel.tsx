@@ -15,6 +15,7 @@ import {
 } from '../services/webSpeechTTS';
 import { base64ToAudioUrl, getCachedSpeech } from '../services/googleTTS';
 import { isIOS, unlockAudio } from '../utils/audioUnlock';
+import { normalizeLoopCount } from '../utils/loopCount';
 import { LANGUAGE_CONFIG } from '../types';
 
 interface Props {
@@ -66,7 +67,12 @@ export function PracticePanel({
   const webSpeechRef = useRef<WebSpeechHandle | null>(null);
   const optsRef = useRef({ language, speed, loopCount, activePhraseId });
 
-  optsRef.current = { language, speed, loopCount, activePhraseId };
+  optsRef.current = {
+    language,
+    speed,
+    loopCount: normalizeLoopCount(loopCount),
+    activePhraseId,
+  };
 
   const { fetchAudio, loading, error, cleanup, setError } = useTTS(
     googleApiKey,

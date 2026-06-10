@@ -4,11 +4,17 @@ import { DEFAULT_SETTINGS } from '../types';
 
 const SETTINGS_KEY = 'rr_settings';
 
+function parseStoredSettings(raw: string): AppSettings {
+  return JSON.parse(raw, (_key, value) =>
+    value === 'Infinity' ? Infinity : value,
+  ) as AppSettings;
+}
+
 function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
-    const stored = JSON.parse(raw) as AppSettings;
+    const stored = parseStoredSettings(raw);
     return { ...DEFAULT_SETTINGS, ...stored };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -34,7 +40,12 @@ export function useSettings() {
   );
 
   useEffect(() => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify(settings, (_key, value) =>
+        value === Infinity ? 'Infinity' : value,
+      ),
+    );
   }, [settings]);
 
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
