@@ -31,6 +31,7 @@ export interface TTSResult {
   audioContent: string;
   timepoints: Timepoint[];
   fromCache: boolean;
+  mimeType?: string;
 }
 
 export interface Timepoint {

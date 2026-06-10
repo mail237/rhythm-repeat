@@ -1,5 +1,6 @@
 import type { Plugin, ViteDevServer } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { synthesizeWithGemini } from '../api/_geminiTts';
 
 async function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -19,7 +20,8 @@ function sendJson(res: ServerResponse, data: unknown, status = 200) {
 async function handleTts(
   req: IncomingMessage,
   res: ServerResponse,
-  apiKey: string,
+  geminiKey: string,
+  cloudKey: string,
 ) {
   const body = JSON.parse(await readBody(req)) as {
     text: string;
@@ -28,8 +30,31 @@ async function handleTts(
     speed: number;
   };
 
+  if (geminiKey) {
+    try {
+      const result = await synthesizeWithGemini(
+        geminiKey,
+        body.text,
+        body.languageCode,
+      );
+      sendJson(res, {
+        audioContent: result.audioContent,
+        mimeType: result.mimeType,
+        timepoints: [],
+      });
+      return;
+    } catch {
+      if (!cloudKey) throw new Error('Gemini TTS failed');
+    }
+  }
+
+  if (!cloudKey) {
+    sendJson(res, { error: { message: 'TTS API key not set' } }, 500);
+    return;
+  }
+
   const response = await fetch(
-    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${cloudKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -190,17 +215,18 @@ function createMiddleware(env: Record<string, string>) {
 
     try {
       if (url === '/api/tts') {
-        const apiKey =
+        const geminiKey = env.GEMINI_API_KEY || '';
+        const cloudKey =
           env.GOOGLE_TTS_API_KEY || env.VITE_GOOGLE_TTS_API_KEY || '';
-        if (!apiKey) {
+        if (!geminiKey && !cloudKey) {
           sendJson(
             res,
-            { error: { message: 'GOOGLE_TTS_API_KEY not set in .env' } },
+            { error: { message: 'GEMINI_API_KEY not set in .env' } },
             500,
           );
           return;
         }
-        await handleTts(req, res, apiKey);
+        await handleTts(req, res, geminiKey, cloudKey);
         return;
       }
 

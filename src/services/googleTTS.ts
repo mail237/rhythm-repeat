@@ -6,6 +6,7 @@ import { LANGUAGE_CONFIG } from '../types';
 interface CacheEntry {
   audioContent: string;
   timepoints: Timepoint[];
+  mimeType?: string;
 }
 
 function getCacheKey(lang: Language, speed: number, textHash: string): string {
@@ -33,6 +34,7 @@ function writeCache(key: string, entry: CacheEntry): void {
 interface SynthesizeResponse {
   audioContent: string;
   timepoints?: Timepoint[];
+  mimeType?: string;
 }
 
 function parseError(data: unknown, fallback: string): string {
@@ -143,18 +145,22 @@ export async function synthesizeSpeech(
   const entry: CacheEntry = {
     audioContent: data.audioContent,
     timepoints,
+    mimeType: data.mimeType ?? 'audio/mp3',
   };
 
   writeCache(cacheKey, entry);
   return { ...entry, fromCache: false };
 }
 
-export function base64ToAudioUrl(base64: string): string {
+export function base64ToAudioUrl(
+  base64: string,
+  mimeType = 'audio/mp3',
+): string {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  const blob = new Blob([bytes], { type: 'audio/mp3' });
+  const blob = new Blob([bytes], { type: mimeType });
   return URL.createObjectURL(blob);
 }

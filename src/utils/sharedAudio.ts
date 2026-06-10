@@ -2,29 +2,54 @@ const SILENT_MP3 =
   'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAADhAC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAA4T/hJAPAAAAAAD/+xDEAAPAAAGkAAAAIAAANIAAAAQAAAaQAAAAgAAA0gAAABExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//sQxAADwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
 
 let sharedAudio: HTMLAudioElement | null = null;
+let unlockAudioEl: HTMLAudioElement | null = null;
+let keepaliveAudio: HTMLAudioElement | null = null;
+
+function createHiddenAudio(): HTMLAudioElement {
+  const audio = document.createElement('audio');
+  audio.setAttribute('playsinline', 'true');
+  audio.setAttribute('webkit-playsinline', 'true');
+  audio.preload = 'auto';
+  audio.style.display = 'none';
+  document.body.appendChild(audio);
+  return audio;
+}
 
 export function getSharedAudioElement(): HTMLAudioElement {
   if (!sharedAudio && typeof document !== 'undefined') {
-    sharedAudio = document.createElement('audio');
-    sharedAudio.setAttribute('playsinline', 'true');
-    sharedAudio.setAttribute('webkit-playsinline', 'true');
-    sharedAudio.preload = 'auto';
-    sharedAudio.style.display = 'none';
-    document.body.appendChild(sharedAudio);
+    sharedAudio = createHiddenAudio();
   }
   return sharedAudio!;
 }
 
-/** Play a silent clip inside the user gesture to unlock async audio on iOS. */
+/** Unlock async audio on iOS without disturbing the main player. */
 export function primeAudioPlayback(): void {
-  const audio = getSharedAudioElement();
-  if (!audio.paused && audio.currentTime > 0) return;
-
-  const prevSrc = audio.src;
-  audio.src = SILENT_MP3;
-  audio.currentTime = 0;
-  void audio.play().catch(() => {
-    // ignore — best-effort unlock
+  if (typeof document === 'undefined') return;
+  if (!unlockAudioEl) {
+    unlockAudioEl = createHiddenAudio();
+    unlockAudioEl.src = SILENT_MP3;
+  }
+  unlockAudioEl.currentTime = 0;
+  void unlockAudioEl.play().catch(() => {
+    // best-effort
   });
-  if (prevSrc) audio.src = prevSrc;
+}
+
+/** Keep the iOS audio session alive while practicing in the background. */
+export function startAudioKeepalive(): void {
+  if (typeof document === 'undefined') return;
+  if (!keepaliveAudio) {
+    keepaliveAudio = createHiddenAudio();
+    keepaliveAudio.loop = true;
+    keepaliveAudio.volume = 0.01;
+    keepaliveAudio.src = SILENT_MP3;
+  }
+  keepaliveAudio.currentTime = 0;
+  void keepaliveAudio.play().catch(() => {
+    // best-effort
+  });
+}
+
+export function stopAudioKeepalive(): void {
+  keepaliveAudio?.pause();
 }

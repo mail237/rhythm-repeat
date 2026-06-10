@@ -14,7 +14,7 @@ import {
   type WebSpeechHandle,
 } from '../services/webSpeechTTS';
 import { base64ToAudioUrl, getCachedSpeech } from '../services/googleTTS';
-import { unlockAudio } from '../utils/audioUnlock';
+import { isIOS, unlockAudio } from '../utils/audioUnlock';
 import { LANGUAGE_CONFIG } from '../types';
 
 interface Props {
@@ -151,6 +151,7 @@ export function PracticePanel({
       const startPlayback = async (audioUrl: string, timepoints: Timepoint[]) => {
         await play(audioUrl, timepoints, {
           loopCount: loops,
+          playbackRate: spd,
           phraseText,
           languageLabel,
           onLoopComplete,
@@ -161,7 +162,7 @@ export function PracticePanel({
         const cached = await getCachedSpeech(phraseText, lang, spd);
         if (cached) {
           await startPlayback(
-            base64ToAudioUrl(cached.audioContent),
+            base64ToAudioUrl(cached.audioContent, cached.mimeType ?? 'audio/mp3'),
             cached.timepoints,
           );
           return;
@@ -169,7 +170,15 @@ export function PracticePanel({
 
         const result = await fetchAudio(phraseText, lang, spd);
         await startPlayback(result.audioUrl, result.timepoints);
-      } catch {
+      } catch (e) {
+        if (isIOS()) {
+          setError(
+            e instanceof Error
+              ? e.message
+              : '音声の取得に失敗しました。もう一度▶をタップしてください',
+          );
+          return;
+        }
         playWithWebSpeech(phraseText);
       }
     },

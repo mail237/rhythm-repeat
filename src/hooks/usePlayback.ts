@@ -7,11 +7,16 @@ import {
   setMediaSessionPlaybackState,
   updateMediaSessionMetadata,
 } from '../utils/mediaSession';
-import { getSharedAudioElement } from '../utils/sharedAudio';
+import {
+  getSharedAudioElement,
+  startAudioKeepalive,
+  stopAudioKeepalive,
+} from '../utils/sharedAudio';
 import type { Timepoint } from '../types';
 
 interface PlaybackOptions {
   loopCount: number;
+  playbackRate?: number;
   phraseText?: string;
   languageLabel?: string;
   onLoopComplete?: () => void;
@@ -67,6 +72,7 @@ export function usePlayback() {
     setIsPlaying(false);
     setCurrentLoop(0);
     setActiveWordIndex(-1);
+    stopAudioKeepalive();
     clearMediaSession();
   }, [stopHighlightLoop]);
 
@@ -88,6 +94,17 @@ export function usePlayback() {
   }, [startHighlightLoop, stopHighlightLoop]);
 
   useEffect(() => {
+    const resumeIfNeeded = () => {
+      const audio = audioRef.current;
+      if (!audio || audio.paused || audio.ended) return;
+      void audio.play().catch(() => {
+        // ignore
+      });
+    };
+
+    document.addEventListener('visibilitychange', resumeIfNeeded);
+    window.addEventListener('pageshow', resumeIfNeeded);
+
     setMediaSessionHandlers({
       onPlay: () => {
         const audio = audioRef.current;
@@ -109,11 +126,14 @@ export function usePlayback() {
     });
 
     return () => {
+      document.removeEventListener('visibilitychange', resumeIfNeeded);
+      window.removeEventListener('pageshow', resumeIfNeeded);
       stopHighlightLoop();
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
+      stopAudioKeepalive();
       clearMediaSession();
     };
   }, [stop, stopHighlightLoop, togglePause]);
@@ -130,6 +150,7 @@ export function usePlayback() {
       audioRef.current = audio;
       audio.src = audioUrl;
       audio.currentTime = 0;
+      audio.playbackRate = options.playbackRate ?? 1;
 
       if (options.phraseText) {
         updateMediaSessionMetadata(
@@ -154,12 +175,14 @@ export function usePlayback() {
           setIsPlaying(false);
           setActiveWordIndex(-1);
           setMediaSessionPlaybackState('none');
+          stopAudioKeepalive();
         }
       };
 
       audio.onplay = () => {
         setIsPlaying(true);
         setMediaSessionPlaybackState('playing');
+        startAudioKeepalive();
         startHighlightLoop();
       };
 

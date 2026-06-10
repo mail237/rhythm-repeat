@@ -38,7 +38,10 @@ export function useTTS(
           googleApiKey || undefined,
         );
         cleanup();
-        const audioUrl = base64ToAudioUrl(result.audioContent);
+        const audioUrl = base64ToAudioUrl(
+          result.audioContent,
+          result.mimeType ?? 'audio/mp3',
+        );
         audioUrlRef.current = audioUrl;
 
         if (!result.fromCache && onCharUsed) {
