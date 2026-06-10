@@ -2,7 +2,25 @@ import { API_BASE } from '../config/api';
 import type { Language } from '../types';
 import { LANGUAGE_CONFIG } from '../types';
 
-const cache = new Map<string, string>();
+const CACHE_KEY = 'rr_translate_cache';
+const memoryCache = new Map<string, string>();
+
+function readDiskCache(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDiskCache(cache: Record<string, string>): void {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // ignore
+  }
+}
 
 function cacheKey(text: string, language: Language): string {
   return `${language}:${text.trim().toLowerCase()}`;
@@ -22,7 +40,7 @@ export async function translatePhrase(
   if (!trimmed) return '';
 
   const key = cacheKey(trimmed, language);
-  const cached = cache.get(key);
+  const cached = memoryCache.get(key) ?? readDiskCache()[key];
   if (cached) return cached;
 
   const response = await fetch(`${API_BASE}/translate`, {
@@ -40,6 +58,9 @@ export async function translatePhrase(
   }
 
   const translation = (data as { translation: string }).translation.trim();
-  cache.set(key, translation);
+  memoryCache.set(key, translation);
+  const disk = readDiskCache();
+  disk[key] = translation;
+  writeDiskCache(disk);
   return translation;
 }

@@ -55,10 +55,8 @@ export function PracticePanel({
   onCharUsed,
 }: Props) {
   const [text, setText] = useState(initialText ?? "I'm beat.");
-  const { translation, translating, setTranslation } = useAutoTranslate(
-    text,
-    language,
-  );
+  const { translation, translating, translateError, setTranslation } =
+    useAutoTranslate(text, language);
   const [showAI, setShowAI] = useState(false);
   const [sessionToday, setSessionToday] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
@@ -261,6 +259,7 @@ export function PracticePanel({
         isPlaying={playing}
         translation={translation || undefined}
         translating={translating}
+        translateError={translateError}
       />
 
       <PlaybackControls

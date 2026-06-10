@@ -1,6 +1,7 @@
 import type { Plugin, ViteDevServer } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { synthesizeWithGemini } from '../api/_geminiTts';
+import { translateWithGemini } from '../api/_translateGemini';
 
 async function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -180,55 +181,13 @@ async function handleTranslate(
     languageLabel: string;
   };
 
-  const prompt = `Translate this ${body.languageLabel} phrase into natural Japanese suitable for language learners.
-Keep the tone (casual/neutral/formal) of the original.
-Return ONLY JSON: {"translation":"日本語訳"}
-
-Phrase: ${body.text}`;
-
-  const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'] as const;
-  let data: unknown;
-  let response: Response | undefined;
-
-  for (const model of models) {
-    response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.2,
-            maxOutputTokens: 256,
-          },
-        }),
-      },
-    );
-
-    data = await response.json();
-    if (response.ok) break;
-    if (response.status !== 404 && response.status !== 429 && response.status !== 503) {
-      sendJson(res, data, response.status);
-      return;
-    }
+  try {
+    const result = await translateWithGemini(geminiKey, body);
+    sendJson(res, result);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Translation error';
+    sendJson(res, { error: { message } }, 500);
   }
-
-  if (!response?.ok) {
-    sendJson(res, data, response?.status ?? 500);
-    return;
-  }
-
-  const text =
-    (data as { candidates?: { content?: { parts?: { text?: string }[] } }[] })
-      .candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    sendJson(res, { error: { message: 'Invalid translation JSON' } }, 500);
-    return;
-  }
-  sendJson(res, JSON.parse(jsonMatch[0]));
 }
 
 function createMiddleware(env: Record<string, string>) {
