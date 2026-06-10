@@ -7,6 +7,7 @@ import { PlayCounter } from './PlayCounter';
 import { AISuggestModal } from './AISuggestModal';
 import { useTTS } from '../hooks/useTTS';
 import { usePlayback } from '../hooks/usePlayback';
+import { useAutoTranslate } from '../hooks/useAutoTranslate';
 import {
   isWebSpeechAvailable,
   speakWithWebSpeech,
@@ -56,7 +57,10 @@ export function PracticePanel({
   onCharUsed,
 }: Props) {
   const [text, setText] = useState(initialText ?? "I'm beat.");
-  const [translation, setTranslation] = useState(initialTranslation ?? '疲れた。');
+  const { translation, translating, setTranslation } = useAutoTranslate(
+    text,
+    language,
+  );
   const [showAI, setShowAI] = useState(false);
   const [sessionToday, setSessionToday] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
@@ -87,7 +91,7 @@ export function PracticePanel({
 
   useEffect(() => {
     if (initialTranslation !== undefined) setTranslation(initialTranslation);
-  }, [initialTranslation]);
+  }, [initialTranslation, setTranslation]);
 
   useEffect(() => {
     warmUpSpeechSynthesis();
@@ -259,6 +263,7 @@ export function PracticePanel({
         activeWordIndex={highlightIndex}
         isPlaying={playing}
         translation={translation || undefined}
+        translating={translating}
       />
 
       <PlaybackControls

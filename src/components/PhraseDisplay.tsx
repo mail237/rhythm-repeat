@@ -5,6 +5,7 @@ interface Props {
   activeWordIndex: number;
   isPlaying: boolean;
   translation?: string;
+  translating?: boolean;
 }
 
 export function PhraseDisplay({
@@ -12,6 +13,7 @@ export function PhraseDisplay({
   activeWordIndex,
   isPlaying,
   translation,
+  translating = false,
 }: Props) {
   const words = splitIntoWords(text);
 
@@ -49,6 +51,9 @@ export function PhraseDisplay({
         )}
       </p>
 
+      {translating && !translation && (
+        <p className="text-gray-500 text-sm animate-pulse">翻訳中...</p>
+      )}
       {translation && (
         <p className="text-gray-400 text-sm sm:text-base">{translation}</p>
       )}
