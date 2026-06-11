@@ -3,12 +3,13 @@ import type { Language, Phrase } from './types';
 import { normalizeLoopCount } from './utils/loopCount';
 import { PracticePanel } from './components/PracticePanel';
 import { PhraseLibrary } from './components/PhraseLibrary';
+import { TemplateLibrary } from './components/TemplateLibrary';
 import { SettingsModal } from './components/SettingsModal';
 import { UpdateBanner } from './components/UpdateBanner';
 import { usePhraseStore } from './hooks/usePhraseStore';
 import { useSettings } from './hooks/useSettings';
 
-type View = 'practice' | 'library';
+type View = 'practice' | 'templates' | 'library';
 
 export default function App() {
   const { settings, updateSettings, addCharCount } = useSettings();
@@ -33,6 +34,14 @@ export default function App() {
     setPracticeText(phrase.text);
     setPracticeTranslation(phrase.translation);
     setActivePhraseId(phrase.id);
+    setView('practice');
+  }, []);
+
+  const handlePracticeTemplate = useCallback((text: string, translation: string) => {
+    setLanguage('en');
+    setPracticeText(text);
+    setPracticeTranslation(translation);
+    setActivePhraseId(null);
     setView('practice');
   }, []);
 
@@ -77,7 +86,8 @@ export default function App() {
           {(
             [
               ['practice', '練習'],
-              ['library', 'ライブラリ'],
+              ['templates', '型'],
+              ['library', '保存'],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -97,7 +107,7 @@ export default function App() {
       </header>
 
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6">
-        {view === 'practice' ? (
+        {view === 'practice' && (
           <PracticePanel
             language={language}
             loopCount={loopCount}
@@ -114,7 +124,11 @@ export default function App() {
             onPlayRecorded={handlePlayRecorded}
             onCharUsed={addCharCount}
           />
-        ) : (
+        )}
+        {view === 'templates' && (
+          <TemplateLibrary onPractice={handlePracticeTemplate} />
+        )}
+        {view === 'library' && (
           <PhraseLibrary
             phrases={phrases}
             totalPlays={totalPlays}
