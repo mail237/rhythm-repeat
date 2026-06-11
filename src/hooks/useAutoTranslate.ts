@@ -11,7 +11,12 @@ function formatTranslateError(message: string): string {
   return '翻訳できませんでした。しばらくしてからお試しください。';
 }
 
-export function useAutoTranslate(text: string, language: Language) {
+export function useAutoTranslate(
+  text: string,
+  language: Language,
+  options?: { enabled?: boolean },
+) {
+  const enabled = options?.enabled ?? true;
   const [translation, setTranslation] = useState('');
   const [translating, setTranslating] = useState(false);
   const [translateError, setTranslateError] = useState<string | null>(null);
@@ -25,6 +30,8 @@ export function useAutoTranslate(text: string, language: Language) {
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
+
     const trimmed = text.trim();
     if (!trimmed) {
       setTranslation('');
@@ -55,7 +62,7 @@ export function useAutoTranslate(text: string, language: Language) {
     }, DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [text, language]);
+  }, [text, language, enabled]);
 
   return {
     translation,

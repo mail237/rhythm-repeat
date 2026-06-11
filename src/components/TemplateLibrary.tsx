@@ -6,7 +6,11 @@ import {
   TEMPLATE_FAMILIES,
 } from '../data/templates';
 import type { PhraseTemplateFull, TemplateFamily } from '../data/templates/types';
-import { toPracticePhrase } from '../utils/templatePractice';
+import {
+  templateExampleCount,
+  toFullTemplatePracticeText,
+  toPracticePhrase,
+} from '../utils/templatePractice';
 
 interface Props {
   onPractice: (text: string, translation: string) => void;
@@ -39,7 +43,10 @@ export function TemplateLibrary({ onPractice }: Props) {
   }, [baseList, family, search]);
 
   const handlePractice = (t: PhraseTemplateFull) => {
-    onPractice(toPracticePhrase(t), t.translation);
+    const count = templateExampleCount(t);
+    const translation =
+      count > 1 ? `${t.translation}（${count}例を連続ループ）` : t.translation;
+    onPractice(toFullTemplatePracticeText(t), translation);
   };
 
   return (
@@ -48,7 +55,7 @@ export function TemplateLibrary({ onPractice }: Props) {
         <h2 className="font-semibold text-violet-200 mb-1">📐 フレーズ型テンプレート</h2>
         <p className="text-xs text-gray-400 leading-relaxed">
           ネイティブがよく使う「型」を選んで練習します。タップすると練習画面へ移動し、▶
-          でループ再生できます。まずは「ループTOP」から始めるのがおすすめです。
+          で再生すると、同じ型の例文を全文まとめてループします。まずは「ループTOP」から。
         </p>
       </div>
 
@@ -130,6 +137,7 @@ function TemplateCard({
   onPractice: () => void;
 }) {
   const example = toPracticePhrase(t);
+  const exampleCount = templateExampleCount(t);
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-2">
@@ -144,7 +152,11 @@ function TemplateCard({
       </div>
 
       <p className="text-xs text-gray-500">
-        例: <span className="text-gray-300">{example}</span>
+        {exampleCount > 1 ? `${exampleCount}例を連続再生 · ` : '例: '}
+        <span className="text-gray-300">{example}</span>
+        {exampleCount > 1 && (
+          <span className="text-gray-600"> ほか{exampleCount - 1}文</span>
+        )}
       </p>
 
       <div className="flex items-center justify-between gap-2 pt-1">

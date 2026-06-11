@@ -28,12 +28,15 @@ export default function App() {
   const [practiceTranslation, setPracticeTranslation] = useState<
     string | undefined
   >();
+  const [practiceTranslationLocked, setPracticeTranslationLocked] =
+    useState(false);
 
   const handlePracticeFromLibrary = useCallback((phrase: Phrase) => {
     setLanguage(phrase.language);
     setPracticeText(phrase.text);
     setPracticeTranslation(phrase.translation);
     setActivePhraseId(phrase.id);
+    setPracticeTranslationLocked(false);
     setView('practice');
   }, []);
 
@@ -41,6 +44,7 @@ export default function App() {
     setLanguage('en');
     setPracticeText(text);
     setPracticeTranslation(translation);
+    setPracticeTranslationLocked(true);
     setActivePhraseId(null);
     setView('practice');
   }, []);
@@ -117,6 +121,7 @@ export default function App() {
             activePhraseId={activePhraseId}
             initialText={practiceText}
             initialTranslation={practiceTranslation}
+            lockTranslation={practiceTranslationLocked}
             onLanguageChange={setLanguage}
             onLoopChange={setLoopCount}
             onSpeedChange={setSpeed}

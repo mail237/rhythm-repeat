@@ -28,6 +28,7 @@ interface Props {
   activePhraseId: string | null;
   initialText?: string;
   initialTranslation?: string;
+  lockTranslation?: boolean;
   onLanguageChange: (lang: Language) => void;
   onLoopChange: (count: number) => void;
   onSpeedChange: (speed: number) => void;
@@ -49,6 +50,7 @@ export function PracticePanel({
   activePhraseId,
   initialText,
   initialTranslation,
+  lockTranslation = false,
   onLanguageChange,
   onLoopChange,
   onSpeedChange,
@@ -58,7 +60,7 @@ export function PracticePanel({
 }: Props) {
   const [text, setText] = useState(initialText ?? "I'm beat.");
   const { translation, translating, translateError, setTranslation } =
-    useAutoTranslate(text, language);
+    useAutoTranslate(text, language, { enabled: !lockTranslation });
   const [showAI, setShowAI] = useState(false);
   const [sessionToday, setSessionToday] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
@@ -251,7 +253,7 @@ export function PracticePanel({
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Enter a phrase to practice..."
-        rows={2}
+        rows={Math.min(8, Math.max(2, text.split('\n').length + 1))}
         className="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-violet-500"
       />
 
